@@ -16,6 +16,10 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+dependencies = [
+    "ipykernel>=6.29.5",
+    "torch>=2.5.1",
+]
 
 [project.urls]
 Homepage = "https://github.com/zhuzilin/ring-flash-attention"
