@@ -1,14 +1,6 @@
-import contextlib
-
 import torch
 import triton
 import triton.language as tl
-
-
-def _kernel_device(device):
-    if device.type != "cuda":
-        return contextlib.nullcontext()
-    return torch.cuda.device(device.index)
 
 
 @triton.jit
@@ -59,7 +51,7 @@ def flatten_varlen_lse(lse, cu_seqlens):
     grid = lambda META: (triton.cdiv(max_seqlen, META["BLOCK_M"]), batch_size, nheads)
     BLOCK_M = 4
 
-    with _kernel_device(lse.device):
+    with torch.cuda.device(lse.device.index):
         flatten_kernel[grid](
             output,
             lse,
@@ -129,7 +121,7 @@ def unflatten_varlen_lse(lse, cu_seqlens, max_seqlen: int):
     grid = lambda META: (triton.cdiv(max_seqlen, META["BLOCK_M"]), batch_size, nheads)
     BLOCK_M = 4
 
-    with _kernel_device(lse.device):
+    with torch.cuda.device(lse.device.index):
         unflatten_kernel[grid](
             output,
             lse,
@@ -143,18 +135,3 @@ def unflatten_varlen_lse(lse, cu_seqlens, max_seqlen: int):
             BLOCK_M,
         )
     return output
-
-
-_tilelens_enabled = False
-
-
-def enable_tilelens_trace(client="tracer"):
-    """Record later launches of the varlen LSE kernels with TileLens."""
-    global flatten_kernel, unflatten_kernel, _tilelens_enabled
-    if _tilelens_enabled:
-        return
-    import tilelens
-
-    flatten_kernel = tilelens.trace(client)(flatten_kernel)
-    unflatten_kernel = tilelens.trace(client)(unflatten_kernel)
-    _tilelens_enabled = True
